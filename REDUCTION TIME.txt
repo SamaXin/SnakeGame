@@ -1,0 +1,58 @@
+//REDUCTION TIME
+#include <stdio.h>
+#include <stdlib.h>
+
+#define N 1024
+#define M 1024
+#define P 1024
+
+void matmul_acc(float *A, float *B, float *C, int n, int m, int p)
+{
+    int i, j, k;
+#pragma acc data copyin(A[0:n*m], B[0:m*p]) copyout(C[0:n*p])
+#pragma acc kernels
+    {
+#pragma acc loop independent collapse(2)
+        for (i = 0; i < n; ++i) {
+            for (j = 0; j < p; ++j) {
+                float sum = 0.0f;
+#pragma acc loop reduction(+:sum)
+                for (k = 0; k < m; ++k) {
+                    sum += A[i*m + k] * B[k*p + j];
+                }
+                C[i*p + j] = sum;
+                printf("%f ", C[i*p + j]);
+            }
+            printf("\n");
+        }
+    }
+}
+
+int main()
+{
+    float *A = (float *)malloc(N * M * sizeof(float));
+    float *B = (float *)malloc(M * P * sizeof(float));
+    float *C = (float *)malloc(N * P * sizeof(float));
+
+    int i, j;
+
+    for (i = 0; i < N; ++i) {
+        for (j = 0; j < M; ++j) {
+            A[i*M + j] = (float)(i+j);
+        }
+    }
+
+    for (i = 0; i < M; ++i) {
+        for (j = 0; j < P; ++j) {
+            B[i*P + j] = (float)(i*j);
+        }
+    }
+
+    matmul_acc(A, B, C, N, M, P);
+
+    free(A);
+    free(B);
+    free(C);
+
+    return 0;
+}
